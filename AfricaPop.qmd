@@ -1,0 +1,188 @@
+---
+title: "Ethiopia, Kenya and Uganda Population Change"
+author: "201730962"
+toc: true
+format: 
+  html:
+    html-math-method: katex
+    code-tools: false
+    self-contained: true
+    embed-resources: true
+editor: visual
+execute: 
+  warning: false
+---
+
+## Running Code
+
+```{r}
+
+```
+
+```{r}
+library(terra)
+library(sf)
+library(tmap)
+library(dplyr)
+library(exactextractr)
+
+```
+
+```{r}
+
+```
+
+```{r}
+pop2015 <- rast("global_pop_2015_CN_1km_R2025A_UA_v1.tif")
+pop2025 <- rast("global_pop_2025_CN_1km_R2025A_UA_v1.tif")
+
+
+adm0 <- read_sf("C:/Users/evieg/OneDrive/Documents/GDS Assignment/result/1f88dd58-b415-4f97-a3ec-69872f9cbad8")
+adm1 <- read_sf("C:/Users/evieg/OneDrive/Documents/GDS Assignment/Boundaries_admin_level_1")
+
+```
+
+```{r}
+names(adm0)
+names(adm1)
+```
+
+```{r}
+countries <- c("Kenya", "Uganda", "Ethiopia")
+
+
+adm0_sub <- adm0 %>% filter(ADM0_NAME %in% countries)
+adm1_sub <- adm1 %>%
+  filter(ADM1_NAME %in% countries | ADM0_NAME %in% countries)
+
+```
+
+```{r}
+# Crop 
+pop2015_crop <- crop(pop2015, vect(adm1_sub))
+pop2025_crop <- crop(pop2025, vect(adm1_sub))
+
+# Mask 
+pop2015_mask <- mask(pop2015_crop, vect(adm1_sub))
+pop2025_mask <- mask(pop2025_crop, vect(adm1_sub))
+
+
+
+```
+
+```{r, output = FALSE}
+
+pop2025_raster <- raster::raster(pop2025_mask)
+adm1_sub$mean_pop2025 <- exact_extract(pop2025_raster, adm1_sub, 'mean')
+
+# mean population count per pixel (≈ people per km²)
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+```
+
+```{r}
+pop2015_resamp <- resample(pop2015_mask, pop2025_mask, method = "bilinear")
+
+# Population change
+pop_change <- pop2025_mask - pop2015_resamp
+
+
+
+```
+
+```{r}
+map1 <- tm_shape(adm1_sub) + 
+  tm_polygons(
+    col = "mean_pop2025",        
+    title = "Mean Pop (2025)",   
+    palette = "RdYlGn",          
+    style = "quantile", n = 6
+  ) + 
+  tm_borders(lwd = 0.5) +        
+  tm_layout(
+    main.title = "Map 1: Average Population Density (2025)",
+    legend.outside = TRUE
+  )
+
+map1
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+classifications <- matrix(c(
+  -Inf, -5,   NA,  # no decline
+    -5,  5,    1,  # Neutral 
+     5,  100,  2,  # Growth 
+   100,  Inf,  3   # High Growth 
+  ),
+  ncol=3, byrow=TRUE)
+
+pop_change_cat <- classify(pop_change, classifications)
+
+categories <- c("No Change", "Growth", "High Growth")
+```
+
+```         
+```
+
+```{r}
+map2 <- tm_shape(pop_change_cat) +
+  tm_raster(title = "Population Change 2015–2025",
+            palette = c("#fdae61","#90EE90","#05472A"),
+            style = "cat",
+            labels = categories) +
+  tm_shape(adm0_sub) + tm_borders(col = "black", lwd = 0.5) +
+  tm_layout(main.title = "Map 2: Categorical Population Change (2015–2025)",
+            legend.outside = TRUE)
+map2
+
+
+```
+
+```         
+```
+
+```{r}
+
+```
+
+What value is associated with each pixel?
+
+The 2 maps are based off the global population 2015 and 2025 raster data where each pixel represents the estimated number of people in a 1km square. However, when converted to population density for Map 1 each one represents the average (mean) number of people in a 1km square.
+
+Which CRS are you using? Justify your answer.
+
+The CRS used is the World Geodetic System 1984 as it is globally standardised and was adopted by many global institutions – US Department of Defence, NATO, International Hydrographic Organisation and International Civil Aviation Organisation (True, 2004). It is also the default CRS of both the global population raster data and the administrative boundaries, so keeping it ensure compatibility when overlaying the datasets.
+
+What is Map 1 saying about population density in Africa?
+
+The pattern of population densities across Ethiopia, Kenya and Uganda are not particularly unique to African countries. They follow typical geographic population trends of higher population densities in significant urban and economic areas, while rural areas are left sparse from internal migration (Selod and Shilpi, 2021). Map 1 shows areas of higher population density generally align with the countries’ capital cities where high concentrations of the populations congregate for better economic opportunities (jobs) and greater infrastructure (healthcare, education, transport).
+
+There also appears to be physical factors influencing the spread on Map 1 with of the low density areas overlapping with more harsh desert like environments and climates. Larger human settlements typically exist in greener areas better suited to agriculture, which would explain the overlap of high population densities with these areas. Both these concepts contribute to the trend of people moving to where lots of people are, due to the greater economic activity and wealth of a high population.
+
+Overall, the harsher terrain of rural areas and the great economic and social opportunities of urban areas mean the data is highly skew towards/around cities, hence why quantile breaks were used for the mean population categories.
+
+Which categorical divisions (Decline, Neutral, Growth and High Growth) did you choose for Map 2 and why?
+
+The Map 2 categories were divided into No Growth (-5% - 5%), Growth (5% - 100%) and High Growth (100% +), as when originally done with a decline category as well no data appeared on the map for decline. Therefore only the most significant categories were used for the map. The bounds for No growth only accounted for insignificant change, the bounds for Growth accounted for a large range of change and High Growth was only extreme change. This kept the map very simple visually making it easy to interpret with only 3 distinctive colours and highlighted only the extremes of the data. However, for greater understanding of the variety of population change it would be better to break down the categories further.
+
+References
+
+Selod, H. and Shilpi, F. (2021) 'Rural-urban migration in developing countries: Lessons from the literature', *Regional Science and Urban Economics*, 91, 103713.
+
+True, S. A. (2004) 'Planning the future of the World Geodetic System 1984', *PLANS 2004. Position Location and Navigation Symposium (IEEE Cat. No.04CH37556)*. Monterey, CA, USA: IEEE, pp. 639-648.
